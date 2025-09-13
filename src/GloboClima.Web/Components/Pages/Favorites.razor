@@ -1,0 +1,209 @@
+@page "/favorites"
+@rendermode InteractiveServer
+@using GloboClima.Core.DTOs
+@inject ApiService ApiService
+@inject AuthenticationService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Favoritos - GloboClima</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-10">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-gradient-primary text-white">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-star me-3"></i>
+                        <h3 class="mb-0">Meus Locais Favoritos</h3>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    @if (!isAuthenticated)
+                    {
+                        <div class="text-center py-5">
+                            <i class="fas fa-lock text-muted mb-3" style="font-size: 3rem;"></i>
+                            <h4 class="text-muted">Acesso Restrito</h4>
+                            <p class="text-muted mb-4">Você precisa estar logado para ver seus favoritos.</p>
+                            <button class="btn btn-primary" @onclick="NavigateToLogin">
+                                <i class="fas fa-sign-in-alt me-2"></i>
+                                Fazer Login
+                            </button>
+                        </div>
+                    }
+                    else if (isLoading)
+                    {
+                        <div class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Carregando...</span>
+                            </div>
+                            <p class="text-muted mt-3">Carregando favoritos...</p>
+                        </div>
+                    }
+                    else if (favorites == null || !favorites.Any())
+                    {
+                        <div class="text-center py-5">
+                            <i class="fas fa-star text-muted mb-3" style="font-size: 3rem;"></i>
+                            <h4 class="text-muted">Nenhum Favorito Encontrado</h4>
+                            <p class="text-muted mb-4">Você ainda não adicionou nenhum local aos favoritos.</p>
+                            <button class="btn btn-primary" @onclick="NavigateToWeather">
+                                <i class="fas fa-search me-2"></i>
+                                Buscar Clima
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="row">
+                            @foreach (var favorite in favorites)
+                            {
+                                <div class="col-12 col-md-6 col-xl-4 mb-4">
+                                    <div class="card h-100 border-0 shadow-sm favorite-card">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                                <h5 class="card-title text-primary mb-0">
+                                                    <i class="fas fa-map-marker-alt me-2"></i>
+                                                    @favorite.CityName
+                                                </h5>
+                                                <button class="btn btn-outline-danger btn-sm" 
+                                                        @onclick="() => RemoveFavorite(favorite.Id)" 
+                                                        disabled="@isRemoving"
+                                                        title="Remover dos favoritos">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                            
+                                            <p class="card-text text-muted mb-3">
+                                                <i class="fas fa-flag me-2"></i>
+                                                @favorite.CountryName
+                                            </p>
+                                            
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <small class="text-muted">
+                                                    <i class="fas fa-calendar me-1"></i>
+                                                    Adicionado em @favorite.AddedAt.ToString("dd/MM/yyyy")
+                                                </small>
+                                                <button class="btn btn-primary btn-sm" 
+                                                        @onclick="() => ViewWeather(favorite.CityName)">
+                                                    <i class="fas fa-eye me-1"></i>
+                                                    Ver Clima
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<FavoriteLocationResponse>? favorites;
+    private bool isLoading = false;
+    private bool isRemoving = false;
+    private bool isAuthenticated = false;
+    private bool hasRendered = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !hasRendered)
+        {
+            hasRendered = true;
+            try
+            {
+                isAuthenticated = await AuthService.IsAuthenticatedAsync();
+                
+                if (isAuthenticated)
+                {
+                    await LoadFavorites();
+                }
+                
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erro ao carregar favoritos: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task LoadFavorites()
+    {
+        isLoading = true;
+        StateHasChanged();
+        
+        try
+        {
+            favorites = await ApiService.GetFavoritesAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao carregar favoritos: {ex.Message}");
+            favorites = new List<FavoriteLocationResponse>();
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RemoveFavorite(int favoriteId)
+    {
+        if (isRemoving) return;
+        
+        isRemoving = true;
+        StateHasChanged();
+        
+        try
+        {
+            var success = await ApiService.RemoveFavoriteAsync(favoriteId);
+            if (success)
+            {
+                favorites = favorites?.Where(f => f.Id != favoriteId).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao remover favorito: {ex.Message}");
+        }
+        finally
+        {
+            isRemoving = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ViewWeather(string cityName)
+    {
+        Navigation.NavigateTo($"/weather?city={Uri.EscapeDataString(cityName)}");
+    }
+
+    private void NavigateToLogin()
+    {
+        Navigation.NavigateTo("/login");
+    }
+
+    private void NavigateToWeather()
+    {
+        Navigation.NavigateTo("/weather");
+    }
+}
+
+<style>
+    .favorite-card {
+        transition: transform 0.2s ease-in-out;
+    }
+    
+    .favorite-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+</style>

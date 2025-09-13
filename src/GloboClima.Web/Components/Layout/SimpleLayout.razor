@@ -1,0 +1,54 @@
+@using Microsoft.AspNetCore.Components.Web
+@namespace GloboClima.Web.Components.Layout
+@inherits LayoutComponentBase
+
+<div class="d-flex flex-column min-vh-100">
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-cloud-sun me-2"></i>
+                GloboClima
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">
+                            <i class="fas fa-home me-1"></i>
+                            Início
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/weather">
+                            <i class="fas fa-cloud-sun me-1"></i>
+                            Clima
+                        </a>
+                    </li>
+                </ul>
+                
+                <ul class="navbar-nav">
+                    <AuthComponent />
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-grow-1">
+        @Body
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-light text-center py-3 mt-auto">
+        <div class="container">
+            <span class="text-muted">
+                © 2025 GloboClima. Sistema de consulta climática e países.
+            </span>
+        </div>
+    </footer>
+</div>

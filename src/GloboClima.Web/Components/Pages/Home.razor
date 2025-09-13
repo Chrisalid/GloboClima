@@ -1,0 +1,90 @@
+@page "/"
+@rendermode InteractiveServer
+@using GloboClima.Web.Services
+
+<PageTitle>Início - GloboClima</PageTitle>
+
+<div class="hero-section">
+    <div class="container">
+        <div class="row justify-content-center text-center">
+            <div class="col-lg-8">
+                <h1 class="display-4 mb-4">
+                    <i class="fas fa-cloud-sun text-primary"></i> 
+                    Bem-vindo ao GloboClima
+                </h1>
+                <p class="lead mb-4">
+                    Seu portal completo para informações climáticas e dados de países ao redor do mundo.
+                    Consulte o clima de qualquer cidade e descubra informações detalhadas sobre países.
+                </p>
+                <div class="d-flex gap-3 justify-content-center">
+                    <a href="/weather" class="btn btn-primary btn-lg">
+                        <i class="fas fa-cloud-rain"></i> Consultar Clima
+                    </a>
+                    <a href="/countries" class="btn btn-outline-primary btn-lg">
+                        <i class="fas fa-globe"></i> Explorar Países
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 text-center">
+                <div class="card-body">
+                    <i class="fas fa-thermometer-half fa-3x text-warning mb-3"></i>
+                    <h5 class="card-title">Informações Climáticas</h5>
+                    <p class="card-text">
+                        Consulte informações detalhadas sobre o clima de qualquer cidade do mundo,
+                        incluindo temperatura, umidade, vento e mais.
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 text-center">
+                <div class="card-body">
+                    <i class="fas fa-flag fa-3x text-success mb-3"></i>
+                    <h5 class="card-title">Dados de Países</h5>
+                    <p class="card-text">
+                        Descubra informações detalhadas sobre países, incluindo população,
+                        idiomas, moedas, capital e muito mais.
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 text-center">
+                <div class="card-body">
+                    <i class="fas fa-star fa-3x text-danger mb-3"></i>
+                    <h5 class="card-title">Favoritos Personalizados</h5>
+                    <p class="card-text">
+                        Salve suas cidades e países favoritos para acesso rápido.
+                        Crie sua própria lista personalizada.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .hero-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 4rem 0;
+        margin: -1rem -15px 2rem -15px;
+    }
+
+    .card {
+        border: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease;
+    }
+
+    .card:hover {
+        transform: translateY(-5px);
+    }
+</style>

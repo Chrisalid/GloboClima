@@ -1,0 +1,97 @@
+name: Deploy GloboClima to AWS
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  AWS_REGION: us-east-1
+  DOTNET_VERSION: 8.0.x
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    
+    - name: Restore dependencies
+      run: dotnet restore
+    
+    - name: Build
+      run: dotnet build --no-restore --configuration Release
+    
+    - name: Test
+      run: dotnet test --no-build --configuration Release --verbosity normal --collect:"XPlat Code Coverage"
+    
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        files: '**/coverage.cobertura.xml'
+        fail_ci_if_error: true
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Install SAM CLI
+      uses: aws-actions/setup-sam@v2
+    
+    - name: Build application
+      run: sam build --template-file infrastructure/template.yaml
+    
+    - name: Deploy to AWS
+      run: |
+        sam deploy \
+          --template-file infrastructure/template.yaml \
+          --stack-name globoclima-prod \
+          --parameter-overrides \
+            Environment=prod \
+            OpenWeatherMapApiKey=${{ secrets.OPENWEATHERMAP_API_KEY }} \
+          --capabilities CAPABILITY_IAM \
+          --no-confirm-changeset \
+          --no-fail-on-empty-changeset
+
+    - name: Get API URL
+      run: |
+        API_URL=$(aws cloudformation describe-stacks \
+          --stack-name globoclima-prod \
+          --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
+          --output text)
+        echo "API URL: $API_URL"
+        echo "API_URL=$API_URL" >> $GITHUB_ENV
+
+    - name: Health Check
+      run: |
+        for i in {1..10}; do
+          if curl -f "$API_URL/health" > /dev/null 2>&1; then
+            echo "Health check passed!"
+            break
+          else
+            echo "Health check failed, retrying in 30 seconds..."
+            sleep 30
+          fi
+        done

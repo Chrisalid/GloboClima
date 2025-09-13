@@ -1,0 +1,23 @@
+@using GloboClima.Web.Components.Layout
+
+<Router AppAssembly="@typeof(App).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(SimpleLayout)" />
+        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <PageTitle>Não encontrado</PageTitle>
+        <LayoutView Layout="@typeof(SimpleLayout)">
+            <div class="container text-center mt-5">
+                <h1 class="display-1">404</h1>
+                <h2>Página não encontrada</h2>
+                <p class="lead">A página que você está procurando não existe.</p>
+                <a href="/" class="btn btn-primary">Voltar ao início</a>
+            </div>
+        </LayoutView>
+    </NotFound>
+</Router>
+
+@code {
+    // Para garantir que as páginas tenham renderização interativa
+}

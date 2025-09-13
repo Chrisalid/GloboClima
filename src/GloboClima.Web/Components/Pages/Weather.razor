@@ -1,0 +1,234 @@
+@page "/weather"
+@rendermode InteractiveServer
+@using GloboClima.Core.DTOs
+@using GloboClima.Web.Services
+@inject ApiService ApiService
+@inject AuthenticationService AuthService
+
+<PageTitle>Clima - GloboClima</PageTitle>
+
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <h2><i class="fas fa-cloud-rain text-primary"></i> Consulta de Clima</h2>
+            <p class="lead">Pesquise informações climáticas de qualquer cidade do mundo.</p>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Pesquisar Cidade</h5>
+                    <div class="input-group">
+                        <input type="text" class="form-control" @bind="cityName" @onkeypress="@(async (e) => { if (e.Key == "Enter") await SearchWeather(); })" 
+                               placeholder="Digite o nome da cidade..." />
+                        <button class="btn btn-primary" @onclick="SearchWeather" disabled="@isLoading">
+                            @if (isLoading)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                            }
+                            <i class="fas fa-search"></i> Buscar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (weather != null)
+    {
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card weather-card">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h3 class="mb-1">
+                                    <i class="fas fa-map-marker-alt text-danger"></i>
+                                    @weather.Name, @weather.Sys.Country
+                                </h3>
+                                <p class="text-muted mb-3">@DateTime.Now.ToString("dddd, dd MMMM yyyy")</p>
+                                
+                                <div class="d-flex align-items-center mb-3">
+                                    <img src="@($"https://openweathermap.org/img/wn/{weather.Weather.FirstOrDefault()?.Icon ?? "01d"}@2x.png")" 
+                                         alt="@(weather.Weather.FirstOrDefault()?.Description)" class="weather-icon me-3" />
+                                    <div>
+                                        <h1 class="display-4 mb-0">@Math.Round(weather.Main.Temp)°C</h1>
+                                        <p class="h5 text-capitalize">@(weather.Weather.FirstOrDefault()?.Description)</p>
+                                    </div>
+                                </div>
+
+                                @if (isAuthenticated)
+                                {
+                                    <button class="btn btn-outline-warning" @onclick="AddToFavorites" disabled="@isAddingFavorite">
+                                        @if (isAddingFavorite)
+                                        {
+                                            <span class="spinner-border spinner-border-sm me-2"></span>
+                                        }
+                                        <i class="fas fa-star"></i> Adicionar aos Favoritos
+                                    </button>
+                                }
+                            </div>
+                            <div class="col-md-4">
+                                <div class="weather-details">
+                                    <div class="detail-item">
+                                        <i class="fas fa-thermometer-half text-danger"></i>
+                                        <span>Sensação térmica: @Math.Round(weather.Main.Feels_like)°C</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <i class="fas fa-tint text-primary"></i>
+                                        <span>Umidade: @weather.Main.Humidity%</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <i class="fas fa-wind text-success"></i>
+                                        <span>Vento: @weather.Wind.Speed m/s</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <i class="fas fa-gauge text-warning"></i>
+                                        <span>Pressão: @weather.Main.Pressure hPa</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <i class="fas fa-eye text-info"></i>
+                                        <span>Visibilidade: @(weather.Visibility / 1000) km</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">
+            <i class="fas fa-exclamation-triangle"></i> @errorMessage
+        </div>
+    }
+</div>
+
+<style>
+    .weather-card {
+        background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+        color: white;
+        border: none;
+    }
+
+    .weather-icon {
+        width: 80px;
+        height: 80px;
+    }
+
+    .weather-details {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        padding: 1rem;
+    }
+
+    .detail-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+
+    .detail-item i {
+        width: 20px;
+        margin-right: 0.5rem;
+    }
+</style>
+
+@code {
+    private string cityName = string.Empty;
+    private WeatherResponse? weather;
+    private string errorMessage = string.Empty;
+    private bool isLoading = false;
+    private bool isAddingFavorite = false;
+    private bool isAuthenticated = false;
+    private bool hasRendered = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !hasRendered)
+        {
+            hasRendered = true;
+            try
+            {
+                isAuthenticated = await AuthService.IsAuthenticatedAsync();
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erro ao verificar autenticação: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task SearchWeather()
+    {
+        if (string.IsNullOrWhiteSpace(cityName))
+            return;
+
+        try
+        {
+            isLoading = true;
+            errorMessage = string.Empty;
+            weather = null;
+
+            weather = await ApiService.GetWeatherAsync(cityName);
+
+            if (weather == null)
+            {
+                errorMessage = $"Não foi possível encontrar informações climáticas para '{cityName}'. Verifique o nome da cidade.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Erro ao buscar informações climáticas. Tente novamente.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task AddToFavorites()
+    {
+        if (weather == null || !isAuthenticated)
+            return;
+
+        try
+        {
+            isAddingFavorite = true;
+
+            var request = new AddFavoriteCityRequest
+            {
+                CityName = weather.Name,
+                Country = weather.Sys.Country,
+                Latitude = weather.Coord.Lat,
+                Longitude = weather.Coord.Lon
+            };
+
+            var success = await ApiService.AddFavoriteCityAsync(request);
+
+            if (success)
+            {
+                errorMessage = string.Empty;
+                // Pode adicionar uma notificação de sucesso aqui
+            }
+            else
+            {
+                errorMessage = "Esta cidade já está nos seus favoritos ou ocorreu um erro.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Erro ao adicionar aos favoritos.";
+        }
+        finally
+        {
+            isAddingFavorite = false;
+        }
+    }
+}

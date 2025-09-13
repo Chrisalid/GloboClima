@@ -1,0 +1,220 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'GloboClima - Sistema de Clima e Países Favoritos'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+    Description: Environment name
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: dotnet8
+    Architectures:
+      - x86_64
+
+Resources:
+  # DynamoDB Tables
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'GloboClima-Users-${Environment}'
+      AttributeDefinitions:
+        - AttributeName: Id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: Id
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  FavoriteCitiesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'GloboClima-FavoriteCities-${Environment}'
+      AttributeDefinitions:
+        - AttributeName: Id
+          AttributeType: S
+        - AttributeName: UserId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: Id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: UserId-index
+          KeySchema:
+            - AttributeName: UserId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  FavoriteCountriesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'GloboClima-FavoriteCountries-${Environment}'
+      AttributeDefinitions:
+        - AttributeName: Id
+          AttributeType: S
+        - AttributeName: UserId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: Id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: UserId-index
+          KeySchema:
+            - AttributeName: UserId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  # Lambda Function
+  GloboClimaApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'GloboClima-API-${Environment}'
+      CodeUri: src/GloboClima.API/
+      Handler: GloboClima.API
+      Environment:
+        Variables:
+          ASPNETCORE_ENVIRONMENT: !Ref Environment
+          JWT_KEY: !Sub '{{resolve:secretsmanager:GloboClima-${Environment}:SecretString:JWT_KEY}}'
+          OPENWEATHERMAP_APIKEY: !Ref OpenWeatherMapApiKey
+          AWS_REGION: !Ref AWS::Region
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FavoriteCitiesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FavoriteCountriesTable
+      Events:
+        ApiGateway:
+          Type: HttpApi
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+
+  # API Gateway
+  GloboClimaApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: !Ref Environment
+      CorsConfiguration:
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+        AllowOrigins:
+          - "*"
+
+  # CloudWatch Log Group
+  ApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/GloboClima-API-${Environment}'
+      RetentionInDays: 14
+
+  # Secrets Manager for JWT Key
+  JWTSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub 'GloboClima-${Environment}'
+      Description: 'JWT Secret for GloboClima application'
+      GenerateSecretString:
+        SecretStringTemplate: '{}'
+        GenerateStringKey: 'JWT_KEY'
+        PasswordLength: 64
+        ExcludeCharacters: '"@/\'
+
+  # CloudWatch Dashboard
+  GloboClimaDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub 'GloboClima-${Environment}'
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/Lambda", "Duration", "FunctionName", "${GloboClimaApiFunction}" ],
+                  [ ".", "Errors", ".", "." ],
+                  [ ".", "Invocations", ".", "." ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Lambda Metrics",
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 6,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", "${UsersTable}" ],
+                  [ ".", "ConsumedWriteCapacityUnits", ".", "." ],
+                  [ ".", "ConsumedReadCapacityUnits", "TableName", "${FavoriteCitiesTable}" ],
+                  [ ".", "ConsumedWriteCapacityUnits", ".", "." ],
+                  [ ".", "ConsumedReadCapacityUnits", "TableName", "${FavoriteCountriesTable}" ],
+                  [ ".", "ConsumedWriteCapacityUnits", ".", "." ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "DynamoDB Metrics",
+                "period": 300
+              }
+            }
+          ]
+        }
+
+Outputs:
+  ApiUrl:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${GloboClimaApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/"
+    Export:
+      Name: !Sub "${AWS::StackName}-ApiUrl"
+
+  UsersTableName:
+    Description: "DynamoDB Users table name"
+    Value: !Ref UsersTable
+    Export:
+      Name: !Sub "${AWS::StackName}-UsersTable"
+
+  FavoriteCitiesTableName:
+    Description: "DynamoDB Favorite Cities table name"
+    Value: !Ref FavoriteCitiesTable
+    Export:
+      Name: !Sub "${AWS::StackName}-FavoriteCitiesTable"
+
+  FavoriteCountriesTableName:
+    Description: "DynamoDB Favorite Countries table name"
+    Value: !Ref FavoriteCountriesTable
+    Export:
+      Name: !Sub "${AWS::StackName}-FavoriteCountriesTable"

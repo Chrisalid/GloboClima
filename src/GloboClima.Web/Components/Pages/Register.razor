@@ -1,0 +1,128 @@
+@page "/register"
+@rendermode InteractiveServer
+@using GloboClima.Core.DTOs
+@using GloboClima.Web.Services
+@inject AuthenticationService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Cadastro - GloboClima</PageTitle>
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-4">
+            <div class="card shadow">
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-user-plus fa-3x text-primary"></i>
+                        <h3 class="mt-2">Criar Conta</h3>
+                    </div>
+
+                    <EditForm Model="@registerRequest" OnValidSubmit="@HandleRegister">
+                        <DataAnnotationsValidator />
+
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-danger" role="alert">
+                                @errorMessage
+                            </div>
+                        }
+
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <InputText class="form-control" @bind-Value="registerRequest.Email" placeholder="seu@email.com" />
+                            <ValidationMessage For="@(() => registerRequest.Email)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Nome de Usuário</label>
+                            <InputText class="form-control" @bind-Value="registerRequest.Username" placeholder="Seu nome de usuário" />
+                            <ValidationMessage For="@(() => registerRequest.Username)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Senha</label>
+                            <InputText type="password" class="form-control" @bind-Value="registerRequest.Password" placeholder="Sua senha" />
+                            <ValidationMessage For="@(() => registerRequest.Password)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Confirmar Senha</label>
+                            <InputText type="password" class="form-control" @bind-Value="registerRequest.ConfirmPassword" placeholder="Confirme sua senha" />
+                            <ValidationMessage For="@(() => registerRequest.ConfirmPassword)" />
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary" disabled="@isLoading">
+                                @if (isLoading)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                }
+                                <i class="fas fa-user-plus"></i> Cadastrar
+                            </button>
+                        </div>
+
+                        <div class="text-center mt-3">
+                            <span>Já tem uma conta? </span>
+                            <a href="/login" class="text-decoration-none">Faça login aqui</a>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private RegisterRequest registerRequest = new();
+    private string errorMessage = string.Empty;
+    private bool isLoading = false;
+    private bool hasRendered = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !hasRendered)
+        {
+            hasRendered = true;
+            try
+            {
+                // Se já estiver autenticado, redirecionar para home
+                if (await AuthService.IsAuthenticatedAsync())
+                {
+                    Navigation.NavigateTo("/");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erro ao verificar autenticação: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task HandleRegister()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = string.Empty;
+
+            var success = await AuthService.RegisterAsync(registerRequest);
+
+            if (success)
+            {
+                Navigation.NavigateTo("/", true);
+            }
+            else
+            {
+                errorMessage = "Erro ao criar conta. Email ou nome de usuário já existe.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Erro ao criar conta. Tente novamente.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

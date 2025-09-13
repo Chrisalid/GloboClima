@@ -1,0 +1,72 @@
+@rendermode InteractiveServer
+@using GloboClima.Web.Services
+@using GloboClima.Core.DTOs
+@inject AuthenticationService AuthService
+@inject NavigationManager Navigation
+
+<div class="auth-component">
+    @if (isAuthenticated)
+    {
+        <div class="d-flex align-items-center">
+            <span class="me-3 text-white">
+                <i class="fas fa-user"></i> Olá, @currentUser?.Username
+            </span>
+            <button class="btn btn-outline-light btn-sm" @onclick="LogoutAsync">
+                <i class="fas fa-sign-out-alt"></i> Sair
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-light btn-sm" @onclick='() => Navigation.NavigateTo("/login")'>
+                <i class="fas fa-sign-in-alt"></i> Entrar
+            </button>
+            <button class="btn btn-light btn-sm" @onclick='() => Navigation.NavigateTo("/register")'>
+                <i class="fas fa-user-plus"></i> Cadastrar
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    private bool isAuthenticated = false;
+    private AuthResponse? currentUser;
+    private bool hasRendered = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadAuthenticationStateAsync();
+            hasRendered = true;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadAuthenticationStateAsync()
+    {
+        try
+        {
+            isAuthenticated = await AuthService.IsAuthenticatedAsync();
+            if (isAuthenticated)
+            {
+                currentUser = await AuthService.GetCurrentUserAsync();
+            }
+        }
+        catch
+        {
+            // Em caso de erro, assume não autenticado
+            isAuthenticated = false;
+            currentUser = null;
+        }
+    }
+
+    private async Task LogoutAsync()
+    {
+        await AuthService.LogoutAsync();
+        isAuthenticated = false;
+        currentUser = null;
+        Navigation.NavigateTo("/", true);
+    }
+}
