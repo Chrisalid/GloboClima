@@ -217,19 +217,15 @@ Configure o pipeline para:
 4. Push para a branch (`git push origin feature/AmazingFeature`)
 5. Abra um Pull Request
 
-## 📝 Licença
-
-Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
-
 ## 👥 Equipe
 
-- **Desenvolvedor**: Nome do Desenvolvedor
-- **Email**: contato@globoclima.com
+- **Desenvolvedor**: Christopher Feitosa do Monte
+- **Email**: christopherfeitosa@gmail.com
 
 ## 📞 Suporte
 
 Para suporte técnico, entre em contato através:
-- Email: suporte@globoclima.com
+- Email: christopherfeitosa@gmail.com
 - Issues: GitHub Issues
 
 ---
